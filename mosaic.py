@@ -171,7 +171,7 @@ class RandomCrop(MosaicBatchTransforms):
         targets: tuple[dict[str, tv_tensors.BoundingBoxes | Any]],
         output_size: int | tuple[int, int] | None = None,
     ) -> tuple[tuple[tv_tensors.Image], tuple[dict[str, torch.Tensor]]]:
-        assert self.output_size is not None and output_size is not None
+        assert self.output_size is not None or output_size is not None
 
         # override output size if provided
         output_size = self.output_size if output_size is None else output_size
