@@ -171,7 +171,7 @@ class RandomCrop(MosaicBatchTransforms):
         targets: tuple[dict[str, tv_tensors.BoundingBoxes | Any]],
         output_size: int | tuple[int, int] | None = None,
     ) -> tuple[tuple[tv_tensors.Image], tuple[dict[str, torch.Tensor]]]:
-        assert self.output_size is not None or output_size is not None
+        assert self.output_size is not None or output_size is not None, f'Given {self.output_size = } and {output_size = }.'
 
         # override output size if provided
         output_size = self.output_size if output_size is None else output_size
@@ -270,10 +270,10 @@ class IntelligentSquareResize(MosaicBatchTransforms):
         self.output_size = output_size
         self.max_aspect_ratio = max_aspect_ratio
         self.crop_to_square = crop_to_square
-        self.centre_pad = False if crop_to_square else centre_pad
+        self.centre_pad = centre_pad
         self.bbox_removal_threshold = bbox_removal_threshold
 
-        if not self.crop_to_square and max_aspect_ratio is None:
+        if not self.crop_to_square and self.max_aspect_ratio is None:
             raise ValueError(f'Both crop_to_square and max_aspect_ratio are turned off.')
 
         self.pad_and_resize = v2.Compose([SquarePad(self.centre_pad), Resize(self.output_size)])
@@ -424,8 +424,11 @@ class Mosaic(MosaicBatchTransforms):
         targets: tuple[dict[str, tv_tensors.BoundingBoxes | Any]],
     ) -> tuple[tuple[tv_tensors.Image], tuple[dict[str, torch.Tensor]]]:
         self.validate_forward_inputs(images, targets)
+        images, targets = list(images), list(targets)
         # resize the images to fit their quarters
-        images, targets = self.preprocess(images, targets)
+        # odd images will be ignored
+        n = (len(images)//4) * 4
+        images[:n], targets[:n] = self.preprocess(images[:n], targets[:n])
         # join the images into a grid
         new_images, new_targets = [], []
         for batch_idx in grouper(range(len(images)), n=4, incomplete='ignore'):
@@ -459,8 +462,8 @@ class Mosaic(MosaicBatchTransforms):
         new_images, new_targets = list(new_images), list(new_targets)
 
         if (rem := divmod(len(images), 4)[1]) != 0:
-            new_images += list(images)[-rem:]
-            new_targets += list(targets)[-rem:]
+            new_images += images[-rem:]
+            new_targets += targets[-rem:]
 
         return tuple(new_images), tuple(new_targets)
 
